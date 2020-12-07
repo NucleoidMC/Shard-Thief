@@ -1,5 +1,6 @@
 {
 	"type": "shardthief:shard_thief",
+	"name": "Shard Thief",
 	"players": {
 		"min": 1,
 		"max": 32
