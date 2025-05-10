@@ -431,11 +431,11 @@ public class ShardThiefActivePhase {
 	}
 
 	public static void spawn(ServerWorld world, ShardThiefMap map, ServerPlayerEntity player, int index) {
-		Direction direction = Direction.fromHorizontal(index);
+		Direction direction = Direction.fromHorizontalQuarterTurns(index);
 		int distance = (int) Math.min(index / 4f + 4, 8);
 		Vec3d pos = map.getCenterSpawnPos().offset(direction.getOpposite(), distance);
 
-		player.teleport(world, pos.getX(), pos.getY(), pos.getZ(), Set.of(), direction.asRotation(), 0, true);
+		player.teleport(world, pos.getX(), pos.getY(), pos.getZ(), Set.of(), direction.getPositiveHorizontalDegrees(), 0, true);
 	}
 
 	public static void respawnIfOutOfBounds(ServerPlayerEntity player, ShardThiefMap map, ServerWorld world) {
