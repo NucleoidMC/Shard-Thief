@@ -1,6 +1,8 @@
 package io.github.haykam821.shardthief.game;
 
 import net.minecraft.enchantment.Enchantments;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemConvertible;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -38,11 +40,11 @@ public class ShardInventoryManager {
 	}
 
 	public void giveShardInventory(ServerPlayerEntity player) {
-		player.getInventory().armor.set(3, this.shardHolderHelmet.copy());
-		player.getInventory().armor.set(2, this.shardHolderChestplate.copy());
-		player.getInventory().armor.set(1, this.shardHolderLeggings.copy());
-		player.getInventory().armor.set(0, this.shardHolderBoots.copy());
-	
+		equipSilently(player, EquipmentSlot.HEAD, this.shardHolderHelmet.copy());
+		equipSilently(player, EquipmentSlot.CHEST, this.shardHolderChestplate.copy());
+		equipSilently(player, EquipmentSlot.LEGS, this.shardHolderLeggings.copy());
+		equipSilently(player, EquipmentSlot.FEET, this.shardHolderBoots.copy());
+
 		for (int slot = 0; slot < 9; slot++) {
 			player.getInventory().setStack(slot, SHARD_HOLDER_SHARD.copy());
 		}
@@ -66,6 +68,11 @@ public class ShardInventoryManager {
 
 			player.playSoundToPlayer(SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.PLAYERS, 1, 1);
 		}
+	}
+
+	private static void equipSilently(ServerPlayerEntity player, EquipmentSlot slot, ItemStack stack) {
+		int slotId = slot.getOffsetEntitySlotId(PlayerInventory.MAIN_SIZE);
+		player.getInventory().setStack(slotId, stack);
 	}
 
 	private static ItemStack createArmorStack(RegistryWrapper.WrapperLookup registries, ItemConvertible item) {
