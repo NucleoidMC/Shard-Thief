@@ -1,19 +1,19 @@
 package io.github.haykam821.shardthief.game;
 
 import io.github.haykam821.shardthief.game.phase.ShardThiefActivePhase;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 
 public class PlayerShardEntry implements Comparable<PlayerShardEntry> {
 	private final ShardThiefActivePhase phase;
-	private final ServerPlayerEntity player;
+	private final ServerPlayer player;
 
 	private int counts;
 	private int invulnerability;
 
-	public PlayerShardEntry(ShardThiefActivePhase phase, ServerPlayerEntity player) {
+	public PlayerShardEntry(ShardThiefActivePhase phase, ServerPlayer player) {
 		this.phase = phase;
 		this.player = player;
 
@@ -21,7 +21,7 @@ public class PlayerShardEntry implements Comparable<PlayerShardEntry> {
 		this.invulnerability = phase.getConfig().getShardInvulnerability();
 	}
 
-	public ServerPlayerEntity getPlayer() {
+	public ServerPlayer getPlayer() {
 		return this.player;
 	}
 
@@ -37,14 +37,14 @@ public class PlayerShardEntry implements Comparable<PlayerShardEntry> {
 		this.counts -= 1;
 	}
 
-	public Text getWinMessage() {
+	public Component getWinMessage() {
 		String key = this.phase.hasShardDropped() ? "text.shardthief.win" : "text.shardthief.win.perfect";
-		return Text.translatable(key, this.getPlayer().getDisplayName()).formatted(Formatting.GOLD);
+		return Component.translatable(key, this.getPlayer().getDisplayName()).withStyle(ChatFormatting.GOLD);
 	}
 
-	public Text getStealMessage() {
-		MutableText playerName = this.getPlayer().getDisplayName().copy().formatted(Formatting.AQUA);
-		return Text.translatable("text.shardthief.shard_stolen", playerName).formatted(Formatting.WHITE);
+	public Component getStealMessage() {
+		MutableComponent playerName = this.getPlayer().getDisplayName().copy().withStyle(ChatFormatting.AQUA);
+		return Component.translatable("text.shardthief.shard_stolen", playerName).withStyle(ChatFormatting.WHITE);
 	}
 
 	public void setInvulnerability(int invulnerability) {

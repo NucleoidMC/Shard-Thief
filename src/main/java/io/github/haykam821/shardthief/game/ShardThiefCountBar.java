@@ -1,19 +1,19 @@
 package io.github.haykam821.shardthief.game;
 
 import io.github.haykam821.shardthief.game.phase.ShardThiefActivePhase;
-import net.minecraft.entity.boss.BossBar;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.world.BossEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.api.game.common.widget.BossBarWidget;
 
 public class ShardThiefCountBar {
-	private static final Formatting TITLE_COLOR = Formatting.AQUA;
+	private static final ChatFormatting TITLE_COLOR = ChatFormatting.AQUA;
 
 	private final BossBarWidget bar;
 
-	public ShardThiefCountBar(Text title, GlobalWidgets widgets) {
-		this.bar = widgets.addBossBar(title.copy().formatted(TITLE_COLOR), BossBar.Color.BLUE, BossBar.Style.PROGRESS);
+	public ShardThiefCountBar(Component title, GlobalWidgets widgets) {
+		this.bar = widgets.addBossBar(title.copy().withStyle(TITLE_COLOR), BossEvent.BossBarColor.BLUE, BossEvent.BossBarOverlay.PROGRESS);
 	}
 
 	public void tick(ShardThiefActivePhase phase) {

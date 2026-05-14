@@ -3,29 +3,29 @@ package io.github.haykam821.shardthief.game.map;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import net.minecraft.block.Blocks;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.structure.rule.BlockMatchRuleTest;
-import net.minecraft.structure.rule.RuleTest;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.levelgen.structure.templatesystem.BlockMatchTest;
+import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTest;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.biome.Biome;
 
 public class ShardThiefMapConfig {
 	public static final Codec<ShardThiefMapConfig> CODEC = RecordCodecBuilder.create(instance -> {
 		return instance.group(
 			Identifier.CODEC.fieldOf("structure_id").forGetter(ShardThiefMapConfig::getStructureId),
-			Biome.REGISTRY_CODEC.fieldOf("biome").forGetter(ShardThiefMapConfig::getBiome),
-			RuleTest.TYPE_CODEC.optionalFieldOf("terracotta_rule", new BlockMatchRuleTest(Blocks.WHITE_TERRACOTTA)).forGetter(ShardThiefMapConfig::getTerracottaRule),
-			RuleTest.TYPE_CODEC.optionalFieldOf("concrete_rule", new BlockMatchRuleTest(Blocks.WHITE_CONCRETE)).forGetter(ShardThiefMapConfig::getConcreteRule),
-			RuleTest.TYPE_CODEC.optionalFieldOf("stained_glass_rule", new BlockMatchRuleTest(Blocks.WHITE_STAINED_GLASS)).forGetter(ShardThiefMapConfig::getStainedGlassRule),
-			RuleTest.TYPE_CODEC.optionalFieldOf("wool_rule", new BlockMatchRuleTest(Blocks.WHITE_WOOL)).forGetter(ShardThiefMapConfig::getWoolRule),
-			RuleTest.TYPE_CODEC.optionalFieldOf("carpet_rule", new BlockMatchRuleTest(Blocks.WHITE_CARPET)).forGetter(ShardThiefMapConfig::getCarpetRule),
+			Biome.CODEC.fieldOf("biome").forGetter(ShardThiefMapConfig::getBiome),
+			RuleTest.CODEC.optionalFieldOf("terracotta_rule", new BlockMatchTest(Blocks.WHITE_TERRACOTTA)).forGetter(ShardThiefMapConfig::getTerracottaRule),
+			RuleTest.CODEC.optionalFieldOf("concrete_rule", new BlockMatchTest(Blocks.WHITE_CONCRETE)).forGetter(ShardThiefMapConfig::getConcreteRule),
+			RuleTest.CODEC.optionalFieldOf("stained_glass_rule", new BlockMatchTest(Blocks.WHITE_STAINED_GLASS)).forGetter(ShardThiefMapConfig::getStainedGlassRule),
+			RuleTest.CODEC.optionalFieldOf("wool_rule", new BlockMatchTest(Blocks.WHITE_WOOL)).forGetter(ShardThiefMapConfig::getWoolRule),
+			RuleTest.CODEC.optionalFieldOf("carpet_rule", new BlockMatchTest(Blocks.WHITE_CARPET)).forGetter(ShardThiefMapConfig::getCarpetRule),
 			Codec.INT.optionalFieldOf("spawn_y_offset", 1).forGetter(ShardThiefMapConfig::getSpawnYOffset)
 		).apply(instance, ShardThiefMapConfig::new);
 	});
 
 	private final Identifier structureId;
-	private final RegistryEntry<Biome> biome;
+	private final Holder<Biome> biome;
 	private final RuleTest terracottaRule;
 	private final RuleTest concreteRule;
 	private final RuleTest stainedGlassRule;
@@ -33,7 +33,7 @@ public class ShardThiefMapConfig {
 	private final RuleTest carpetRule;
 	private final int spawnYOffset;
 
-	public ShardThiefMapConfig(Identifier structureId, RegistryEntry<Biome> biome, RuleTest terracottaRule, RuleTest concreteRule, RuleTest stainedGlassRule, RuleTest woolRule, RuleTest carpetRule, int spawnYOffset) {
+	public ShardThiefMapConfig(Identifier structureId, Holder<Biome> biome, RuleTest terracottaRule, RuleTest concreteRule, RuleTest stainedGlassRule, RuleTest woolRule, RuleTest carpetRule, int spawnYOffset) {
 		this.structureId = structureId;
 		this.biome = biome;
 		this.terracottaRule = terracottaRule;
@@ -48,7 +48,7 @@ public class ShardThiefMapConfig {
 		return this.structureId;
 	}
 
-	public RegistryEntry<Biome> getBiome() {
+	public Holder<Biome> getBiome() {
 		return this.biome;
 	}
 

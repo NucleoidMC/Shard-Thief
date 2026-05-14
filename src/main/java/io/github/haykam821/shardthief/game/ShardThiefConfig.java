@@ -6,8 +6,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.haykam821.shardthief.game.map.ShardThiefMapConfig;
 import net.minecraft.SharedConstants;
-import net.minecraft.util.math.intprovider.ConstantIntProvider;
-import net.minecraft.util.math.intprovider.IntProvider;
+import net.minecraft.util.valueproviders.ConstantInt;
+import net.minecraft.util.valueproviders.IntProvider;
+import net.minecraft.util.valueproviders.IntProviders;
 import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 
 public class ShardThiefConfig {
@@ -24,7 +25,7 @@ public class ShardThiefConfig {
 			Codec.INT.optionalFieldOf("max_arrows", 3).forGetter(ShardThiefConfig::getMaxArrows),
 			Codec.INT.optionalFieldOf("speed_amplifier", 2).forGetter(ShardThiefConfig::getSpeedAmplifier),
 			Codec.INT.optionalFieldOf("dropped_shard_reset_ticks", 20 * 15).forGetter(ShardThiefConfig::getDroppedShardResetTicks),
-			IntProvider.NON_NEGATIVE_CODEC.optionalFieldOf("ticks_until_close", ConstantIntProvider.create(SharedConstants.TICKS_PER_SECOND * 5)).forGetter(ShardThiefConfig::getTicksUntilClose)
+			IntProviders.NON_NEGATIVE_CODEC.optionalFieldOf("ticks_until_close", ConstantInt.of(SharedConstants.TICKS_PER_SECOND * 5)).forGetter(ShardThiefConfig::getTicksUntilClose)
 		).apply(instance, ShardThiefConfig::new);
 	});
 

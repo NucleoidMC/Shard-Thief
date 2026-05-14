@@ -1,7 +1,7 @@
 package io.github.haykam821.shardthief.game.event;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.StimulusEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
@@ -38,5 +38,5 @@ public interface AllowProjectileHitEvent {
 		};
 	});
 
-	EventResult allowProjectileHit(Entity entity, PersistentProjectileEntity projectile);
+	EventResult allowProjectileHit(Entity entity, AbstractArrow projectile);
 }
