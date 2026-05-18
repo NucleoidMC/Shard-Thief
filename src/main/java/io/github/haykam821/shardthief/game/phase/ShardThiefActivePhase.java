@@ -1,6 +1,7 @@
 package io.github.haykam821.shardthief.game.phase;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Sets;
@@ -15,6 +16,9 @@ import io.github.haykam821.shardthief.game.map.ShardThiefMap;
 import io.github.haykam821.shardthief.game.shard.BlockDroppedShard;
 import io.github.haykam821.shardthief.game.shard.DisplayDroppedShard;
 import io.github.haykam821.shardthief.game.shard.DroppedShard;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents;
+import net.minecraft.core.Vec3i;
+import net.minecraft.network.protocol.game.ClientboundTrackedWaypointPacket;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.damagesource.DamageSource;
@@ -34,6 +38,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.waypoints.Waypoint;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -67,6 +72,7 @@ public class ShardThiefActivePhase {
 	private int ticksUntilKitRestock;
 	private DroppedShard droppedShard;
 	private boolean shardDropped;
+	private UUID shardUUID = UUID.randomUUID();
 
 	public ShardThiefActivePhase(GameSpace gameSpace, ServerLevel level, ShardThiefMap map, ShardThiefConfig config, Set<ServerPlayer> players, GlobalWidgets widgets, HolderAttachment guideText) {
 		this.level = level;
@@ -145,6 +151,10 @@ public class ShardThiefActivePhase {
 
 			this.setSpectator(player);
 		}
+
+		for (ServerPlayer player : this.gameSpace.getPlayers()) {
+			player.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
+		}
 	}
 
 	public float getTimerBarPercent() {
@@ -174,11 +184,16 @@ public class ShardThiefActivePhase {
 
 	private void setShardHolder(PlayerShardEntry entry) {
 		this.clearShard();
+		if (this.shardHolder != null && !this.shardHolder.equals(entry)) {
+			this.shardHolder.getPlayer().connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
+		}
+
 		this.shardHolder = entry;
 		entry.setInvulnerability(this.config.getShardInvulnerability());
 
 		entry.getPlayer().getInventory().clearContent();
 		this.shardInventoryManager.giveShardInventory(entry.getPlayer());
+		entry.getPlayer().connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(shardUUID));
 	}
 
 	private void sendStealMessage() {
@@ -191,7 +206,6 @@ public class ShardThiefActivePhase {
 
 		this.droppedShard.reset(this.level);
 		this.droppedShard = null;
-
 		this.applyStealSpeed(entry.getPlayer());
 	
 		this.level.playSound(null, entry.getPlayer().blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1, 1);
@@ -331,6 +345,18 @@ public class ShardThiefActivePhase {
 			}
 		}
 
+		Vec3i shardPos;
+		if (this.droppedShard != null) {
+			Vec3 shardRealPos = this.droppedShard.getPos();
+            shardPos = new Vec3i((int) shardRealPos.x(), (int) shardRealPos.y(), (int) shardRealPos.z());
+		} else {
+			if (this.shardHolder != null) {
+				shardPos = this.shardHolder.getPlayer().blockPosition();
+			} else {
+				shardPos = Vec3i.ZERO;
+			}
+		}
+
 		for (PlayerShardEntry entry : this.players) {
 			entry.tick();
 
@@ -339,6 +365,9 @@ public class ShardThiefActivePhase {
 
 			if (!this.isGameEnding() && !entry.equals(this.shardHolder) && this.canPlayerPickUpDroppedShard(player)) {
 				this.pickUpShard(entry);
+			}
+			if (!entry.equals(this.shardHolder)) {
+				player.connection.send(ClientboundTrackedWaypointPacket.updateWaypointPosition(shardUUID, Waypoint.Icon.NULL, shardPos));
 			}
 		}
 	}
@@ -362,6 +391,7 @@ public class ShardThiefActivePhase {
 	private JoinAcceptorResult onAcceptPlayers(JoinAcceptor acceptor) {
 		return acceptor.teleport(this.level, this.map.getCenterSpawnPos()).thenRunForEach(player -> {
 			this.setSpectator(player);
+			player.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
 		});
 	}
 
@@ -370,7 +400,7 @@ public class ShardThiefActivePhase {
 		if (!this.isGameEnding() && this.shardHolder != null && player.equals(this.shardHolder.getPlayer())) {
 			this.dropShard();
 		}
-
+		player.connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(shardUUID));
 		this.players.removeIf(entry -> {
 			return player.equals(entry.getPlayer());
 		});
