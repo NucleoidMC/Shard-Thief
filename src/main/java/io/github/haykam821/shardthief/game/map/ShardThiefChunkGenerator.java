@@ -76,9 +76,9 @@ public final class ShardThiefChunkGenerator extends GameChunkGenerator {
 		int x = size.getX() * 2 - 1;
 		int z = size.getZ() * 2 - 1;
 
-		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN, Rotation.NONE, Blocks.LIME_TERRACOTTA, Blocks.LIME_CONCRETE, Blocks.LIME_STAINED_GLASS, Blocks.LIME_WOOL, Blocks.LIME_CARPET);
-		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(x, 0, 0), Rotation.CLOCKWISE_90, Blocks.LIGHT_BLUE_TERRACOTTA, Blocks.BLUE_CONCRETE, Blocks.BLUE_STAINED_GLASS, Blocks.BLUE_WOOL, Blocks.BLUE_CARPET);
-		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(x, 0, z), Rotation.CLOCKWISE_180, Blocks.RED_TERRACOTTA, Blocks.RED_CONCRETE, Blocks.RED_STAINED_GLASS, Blocks.RED_WOOL, Blocks.RED_CARPET);
-		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(0, 0, z), Rotation.COUNTERCLOCKWISE_90, Blocks.YELLOW_TERRACOTTA, Blocks.YELLOW_CONCRETE, Blocks.YELLOW_STAINED_GLASS, Blocks.YELLOW_WOOL, Blocks.YELLOW_CARPET);
+		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN, Rotation.NONE, Blocks.DYED_TERRACOTTA.lime(), Blocks.DYED_TERRACOTTA.lime(), Blocks.STAINED_GLASS.lime(), Blocks.WOOL.lime(), Blocks.CARPET.lime());
+		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(x, 0, 0), Rotation.CLOCKWISE_90, Blocks.DYED_TERRACOTTA.lightBlue(), Blocks.CONCRETE.blue(), Blocks.STAINED_GLASS.blue(), Blocks.WOOL.blue(), Blocks.CARPET.blue());
+		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(x, 0, z), Rotation.CLOCKWISE_180, Blocks.DYED_TERRACOTTA.red(), Blocks.CONCRETE.red(), Blocks.STAINED_GLASS.red(), Blocks.WOOL.red(), Blocks.CARPET.red());
+		this.placeStructure(level, chunk, ShardThiefMap.ORIGIN.offset(0, 0, z), Rotation.COUNTERCLOCKWISE_90, Blocks.DYED_TERRACOTTA.yellow(), Blocks.CONCRETE.yellow(), Blocks.STAINED_GLASS.yellow(), Blocks.WOOL.yellow(), Blocks.CARPET.yellow());
 	}
 }
