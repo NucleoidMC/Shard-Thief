@@ -6,29 +6,29 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import io.github.haykam821.shardthief.game.event.AllowProjectileHitEvent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.Level;
 import xyz.nucleoid.stimuli.EventInvokers;
 import xyz.nucleoid.stimuli.Stimuli;
 import xyz.nucleoid.stimuli.event.EventResult;
 
-@Mixin(PersistentProjectileEntity.class)
-public abstract class PersistentProjectileEntityMixin extends ProjectileEntity {
-	public PersistentProjectileEntityMixin(EntityType<? extends ProjectileEntity> entityType, World world) {
+@Mixin(AbstractArrow.class)
+public abstract class AbstractArrowMixin extends Projectile {
+	public AbstractArrowMixin(EntityType<? extends Projectile> entityType, Level world) {
 		super(entityType, world);
 	}
 
-	@Inject(method = "canHit", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "canHitEntity", at = @At("HEAD"), cancellable = true)
 	private void preventArrowHit(Entity entity, CallbackInfoReturnable<Boolean> ci) {
-		if (entity.getWorld().isClient()) {
+		if (entity.level().isClientSide()) {
 			return;
 		}
 
 		try (EventInvokers invokers = Stimuli.select().forEntity(entity)) {
-			PersistentProjectileEntity projectile = (PersistentProjectileEntity) (Object) this;
+			AbstractArrow projectile = (AbstractArrow) (Object) this;
 			EventResult result = invokers.get(AllowProjectileHitEvent.EVENT).allowProjectileHit(entity, projectile);
 
 			if (result == EventResult.DENY) {

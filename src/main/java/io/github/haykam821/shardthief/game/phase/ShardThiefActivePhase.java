@@ -1,6 +1,7 @@
 package io.github.haykam821.shardthief.game.phase;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Sets;
@@ -15,25 +16,29 @@ import io.github.haykam821.shardthief.game.map.ShardThiefMap;
 import io.github.haykam821.shardthief.game.shard.BlockDroppedShard;
 import io.github.haykam821.shardthief.game.shard.DisplayDroppedShard;
 import io.github.haykam821.shardthief.game.shard.DroppedShard;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.PersistentProjectileEntity;
-import net.minecraft.entity.projectile.ProjectileEntity;
-import net.minecraft.registry.tag.DamageTypeTags;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents;
+import net.minecraft.core.Vec3i;
+import net.minecraft.network.protocol.game.ClientboundTrackedWaypointPacket;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.waypoints.Waypoint;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -50,7 +55,7 @@ import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
 public class ShardThiefActivePhase {
-	private final ServerWorld world;
+	private final ServerLevel level;
 	private final GameSpace gameSpace;
 	private final ShardThiefMap map;
 	private final ShardThiefConfig config;
@@ -67,9 +72,10 @@ public class ShardThiefActivePhase {
 	private int ticksUntilKitRestock;
 	private DroppedShard droppedShard;
 	private boolean shardDropped;
+	private UUID shardUUID = UUID.randomUUID();
 
-	public ShardThiefActivePhase(GameSpace gameSpace, ServerWorld world, ShardThiefMap map, ShardThiefConfig config, Set<ServerPlayerEntity> players, GlobalWidgets widgets, HolderAttachment guideText) {
-		this.world = world;
+	public ShardThiefActivePhase(GameSpace gameSpace, ServerLevel level, ShardThiefMap map, ShardThiefConfig config, Set<ServerPlayer> players, GlobalWidgets widgets, HolderAttachment guideText) {
+		this.level = level;
 		this.gameSpace = gameSpace;
 		this.map = map;
 		this.config = config;
@@ -80,7 +86,7 @@ public class ShardThiefActivePhase {
 
 		this.countBar = new ShardThiefCountBar(GameConfig.name(gameSpace.getMetadata().sourceConfig()), widgets);
 
-		this.shardInventoryManager = new ShardInventoryManager(this.world.getRegistryManager());
+		this.shardInventoryManager = new ShardInventoryManager(this.level.registryAccess());
 
 		this.placeDisplayShard(this.map.getInitialShardPos());
 
@@ -108,11 +114,11 @@ public class ShardThiefActivePhase {
 		}
 	}
 
-	public static void open(GameSpace gameSpace, ServerWorld world, ShardThiefMap map, ShardThiefConfig config, HolderAttachment guideText) {
+	public static void open(GameSpace gameSpace, ServerLevel level, ShardThiefMap map, ShardThiefConfig config, HolderAttachment guideText) {
 		gameSpace.setActivity(activity -> {
 			GlobalWidgets widgets = GlobalWidgets.addTo(activity);
 
-			ShardThiefActivePhase active = new ShardThiefActivePhase(gameSpace, world, map, config, Sets.newHashSet(gameSpace.getPlayers().participants()), widgets, guideText);
+			ShardThiefActivePhase active = new ShardThiefActivePhase(gameSpace, level, map, config, Sets.newHashSet(gameSpace.getPlayers().participants()), widgets, guideText);
 			ShardThiefActivePhase.setRules(activity, true);
 
 			// Listeners
@@ -130,20 +136,24 @@ public class ShardThiefActivePhase {
 	private void enable() {
 		int index = 0;
 		for (PlayerShardEntry entry : this.players) {
-			ServerPlayerEntity player = entry.getPlayer();
+			ServerPlayer player = entry.getPlayer();
 
-			player.changeGameMode(GameMode.ADVENTURE);
+			player.setGameMode(GameType.ADVENTURE);
 			this.shardInventoryManager.giveNonShardInventory(player);
 
-			ShardThiefActivePhase.spawn(this.world, this.map, player, index);
+			ShardThiefActivePhase.spawn(this.level, this.map, player, index);
 			index += 1;
 		}
 
-		for (ServerPlayerEntity player : this.gameSpace.getPlayers().spectators()) {
-			Vec3d pos = this.map.getCenterSpawnPos();
-			player.teleport(world, pos.getX(), pos.getY(), pos.getZ(), Set.of(), 0, 0, true);
+		for (ServerPlayer player : this.gameSpace.getPlayers().spectators()) {
+			Vec3 pos = this.map.getCenterSpawnPos();
+			player.teleportTo(level, pos.x(), pos.y(), pos.z(), Set.of(), 0, 0, true);
 
 			this.setSpectator(player);
+		}
+
+		for (ServerPlayer player : this.gameSpace.getPlayers()) {
+			player.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
 		}
 	}
 
@@ -161,7 +171,7 @@ public class ShardThiefActivePhase {
 	private void clearShard() {
 		if (this.shardHolder == null) return;
 
-		this.shardHolder.getPlayer().getInventory().clear();
+		this.shardHolder.getPlayer().getInventory().clearContent();
 		this.shardInventoryManager.giveNonShardInventory(this.shardHolder.getPlayer());
 
 		if (this.shardHolder.getCounts() < this.config.getRestartCounts()) {
@@ -174,37 +184,41 @@ public class ShardThiefActivePhase {
 
 	private void setShardHolder(PlayerShardEntry entry) {
 		this.clearShard();
+		if (this.shardHolder != null && !this.shardHolder.equals(entry)) {
+			this.shardHolder.getPlayer().connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
+		}
+
 		this.shardHolder = entry;
 		entry.setInvulnerability(this.config.getShardInvulnerability());
 
-		entry.getPlayer().getInventory().clear();
+		entry.getPlayer().getInventory().clearContent();
 		this.shardInventoryManager.giveShardInventory(entry.getPlayer());
+		entry.getPlayer().connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(shardUUID));
 	}
 
 	private void sendStealMessage() {
-		Text stealText = this.shardHolder.getStealMessage();
+		Component stealText = this.shardHolder.getStealMessage();
 		this.gameSpace.getPlayers().sendActionBar(stealText);
 	}
 
 	private void pickUpShard(PlayerShardEntry entry) {
 		this.setShardHolder(entry);
 
-		this.droppedShard.reset(this.world);
+		this.droppedShard.reset(this.level);
 		this.droppedShard = null;
-
 		this.applyStealSpeed(entry.getPlayer());
 	
-		this.world.playSound(null, entry.getPlayer().getBlockPos(), SoundEvents.ENTITY_ITEM_PICKUP, SoundCategory.PLAYERS, 1, 1);
+		this.level.playSound(null, entry.getPlayer().blockPosition(), SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 1, 1);
 		this.sendStealMessage();
 	}
 
 	private BlockPos findDropPos(BlockPos initialPos) {
-		BlockPos.Mutable pos = initialPos.mutableCopy();
+		BlockPos.MutableBlockPos pos = initialPos.mutable();
 		while (true) {
 			if (pos.getY() == 0) return pos;
 
-			BlockState state = this.world.getBlockState(pos);
-			if (DroppedShard.isDroppableOn(state, this.world, pos)) {
+			BlockState state = this.level.getBlockState(pos);
+			if (DroppedShard.isDroppableOn(state, this.level, pos)) {
 				return pos;
 			}
 
@@ -212,76 +226,76 @@ public class ShardThiefActivePhase {
 		}
 	}
 
-	public void attemptResetShard(int ticks, Vec3d pos) {
+	public void attemptResetShard(int ticks, Vec3 pos) {
 		if (ticks < this.config.getDroppedShardResetTicks()) return;
 		if (pos.equals(this.map.getInitialShardPos())) return;
 
-		this.droppedShard.reset(this.world);
+		this.droppedShard.reset(this.level);
 
 		this.placeDisplayShard(this.map.getInitialShardPos());
 		this.playDropSound(pos);
 
-		Text message = this.droppedShard.getResetMessage();
+		Component message = this.droppedShard.getResetMessage();
 		this.gameSpace.getPlayers().sendMessage(message);
 	}
 
 	private void placeShard(BlockPos pos) {
-		this.droppedShard = new BlockDroppedShard(this, pos, this.world.getBlockState(pos), this.config.getShardInvulnerability());
-		this.droppedShard.place(this.world);
+		this.droppedShard = new BlockDroppedShard(this, pos, this.level.getBlockState(pos), this.config.getShardInvulnerability());
+		this.droppedShard.place(this.level);
 	}
 
-	private void placeDisplayShard(Vec3d pos) {
-		this.droppedShard = new DisplayDroppedShard(this, this.world, pos, this.config.getShardInvulnerability());
-		this.droppedShard.place(this.world);
+	private void placeDisplayShard(Vec3 pos) {
+		this.droppedShard = new DisplayDroppedShard(this, this.level, pos, this.config.getShardInvulnerability());
+		this.droppedShard.place(this.level);
 	}
 
-	private void playDropSound(Vec3d pos) {
-		world.playSound(null, pos.getX(), pos.getY(), pos.getZ(), SoundEvents.ENTITY_SPLASH_POTION_BREAK, SoundCategory.PLAYERS, 1, 1);
+	private void playDropSound(Vec3 pos) {
+		level.playSound(null, pos.x(), pos.y(), pos.z(), SoundEvents.SPLASH_POTION_BREAK, SoundSource.PLAYERS, 1, 1);
 	}
 
 	private void dropShard() {
-		BlockPos pos = this.findDropPos(this.shardHolder.getPlayer().getBlockPos());
+		BlockPos pos = this.findDropPos(this.shardHolder.getPlayer().blockPosition());
 		this.placeShard(pos);
 
 		this.shardDropped = true;
 		this.clearShard();
 
-		this.playDropSound(Vec3d.ofCenter(pos));
+		this.playDropSound(Vec3.atCenterOf(pos));
 	}
 
-	private Formatting getCountTitleColor() {
+	private ChatFormatting getCountTitleColor() {
 		int counts = this.shardHolder.getCounts();
 		if (counts <= 1) {
-			return Formatting.RED;
+			return ChatFormatting.RED;
 		} else if (counts <= 3) {
-			return Formatting.GOLD;
+			return ChatFormatting.GOLD;
 		} else {
-			return Formatting.YELLOW;
+			return ChatFormatting.YELLOW;
 		}
 	}
 
 	private void tickCounts() {
 		this.shardHolder.decrementCounts();
 		if (this.shardHolder.getCounts() <= 0) {
-			Text message = this.shardHolder.getWinMessage();
+			Component message = this.shardHolder.getWinMessage();
 			this.gameSpace.getPlayers().sendMessage(message);
 
-			this.gameSpace.getPlayers().playSound(SoundEvents.ENTITY_FIREWORK_ROCKET_BLAST, SoundCategory.PLAYERS, 1, 1);
+			this.gameSpace.getPlayers().playSound(SoundEvents.FIREWORK_ROCKET_BLAST, SoundSource.PLAYERS, 1, 1);
 
-			this.ticksUntilClose = this.config.getTicksUntilClose().get(this.world.getRandom());
+			this.ticksUntilClose = this.config.getTicksUntilClose().sample(this.level.getRandom());
 			return;
 		} else if (this.shardHolder.getCounts() <= 5) {
 			String countString = Integer.toString(this.shardHolder.getCounts());
-			Text countText = Text.literal(countString).formatted(this.getCountTitleColor()).formatted(Formatting.BOLD);
+			Component countText = Component.literal(countString).withStyle(this.getCountTitleColor()).withStyle(ChatFormatting.BOLD);
 			this.gameSpace.getPlayers().showTitle(countText, 70);
 
-			this.gameSpace.getPlayers().playSound(SoundEvents.BLOCK_NOTE_BLOCK_BIT.value(), SoundCategory.PLAYERS, 1, 1.5f);
+			this.gameSpace.getPlayers().playSound(SoundEvents.NOTE_BLOCK_BIT.value(), SoundSource.PLAYERS, 1, 1.5f);
 		}
 
 		this.resetTicksUntilCount();
 	}
 
-	private boolean canPlayerPickUpDroppedShard(PlayerEntity player) {
+	private boolean canPlayerPickUpDroppedShard(Player player) {
 		return this.droppedShard != null && this.droppedShard.canPlayerPickUp(player);
 	}
 
@@ -314,7 +328,7 @@ public class ShardThiefActivePhase {
 		}
 
 		if (this.droppedShard != null) {
-			this.droppedShard.tick(this.world);
+			this.droppedShard.tick(this.level);
 		}
 
 		if (!this.isGameEnding()) {
@@ -331,14 +345,29 @@ public class ShardThiefActivePhase {
 			}
 		}
 
+		Vec3i shardPos;
+		if (this.droppedShard != null) {
+			Vec3 shardRealPos = this.droppedShard.getPos();
+            shardPos = new Vec3i((int) shardRealPos.x(), (int) shardRealPos.y(), (int) shardRealPos.z());
+		} else {
+			if (this.shardHolder != null) {
+				shardPos = this.shardHolder.getPlayer().blockPosition();
+			} else {
+				shardPos = Vec3i.ZERO;
+			}
+		}
+
 		for (PlayerShardEntry entry : this.players) {
 			entry.tick();
 
-			ServerPlayerEntity player = entry.getPlayer();
-			ShardThiefActivePhase.respawnIfOutOfBounds(player, this.map, this.world);
+			ServerPlayer player = entry.getPlayer();
+			ShardThiefActivePhase.respawnIfOutOfBounds(player, this.map, this.level);
 
 			if (!this.isGameEnding() && !entry.equals(this.shardHolder) && this.canPlayerPickUpDroppedShard(player)) {
 				this.pickUpShard(entry);
+			}
+			if (!entry.equals(this.shardHolder)) {
+				player.connection.send(ClientboundTrackedWaypointPacket.updateWaypointPosition(shardUUID, Waypoint.Icon.NULL, shardPos));
 			}
 		}
 	}
@@ -347,8 +376,8 @@ public class ShardThiefActivePhase {
 		return this.ticksUntilClose >= 0;
 	}
 
-	private void setSpectator(ServerPlayerEntity player) {
-		player.changeGameMode(GameMode.SPECTATOR);
+	private void setSpectator(ServerPlayer player) {
+		player.setGameMode(GameType.SPECTATOR);
 	}
 
 	public ShardThiefConfig getConfig() {
@@ -360,45 +389,46 @@ public class ShardThiefActivePhase {
 	}
 
 	private JoinAcceptorResult onAcceptPlayers(JoinAcceptor acceptor) {
-		return acceptor.teleport(this.world, this.map.getCenterSpawnPos()).thenRunForEach(player -> {
+		return acceptor.teleport(this.level, this.map.getCenterSpawnPos()).thenRunForEach(player -> {
 			this.setSpectator(player);
+			player.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(shardUUID, Waypoint.Icon.NULL, Vec3i.ZERO));
 		});
 	}
 
-	private void removePlayer(ServerPlayerEntity player) {
+	private void removePlayer(ServerPlayer player) {
 		// Drop shard when player is removed
 		if (!this.isGameEnding() && this.shardHolder != null && player.equals(this.shardHolder.getPlayer())) {
 			this.dropShard();
 		}
-
+		player.connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(shardUUID));
 		this.players.removeIf(entry -> {
 			return player.equals(entry.getPlayer());
 		});
 	}
 
-	private void applyStealSpeed(ServerPlayerEntity player) {
+	private void applyStealSpeed(ServerPlayer player) {
 		if (this.config.getSpeedAmplifier() <= 0) return;
-		player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, this.config.getShardInvulnerability() * 2, this.config.getSpeedAmplifier(), true, false, true));
+		player.addEffect(new MobEffectInstance(MobEffects.SPEED, this.config.getShardInvulnerability() * 2, this.config.getSpeedAmplifier(), true, false, true));
 	}
 
-	private void tryTransferShard(ServerPlayerEntity damagedPlayer, DamageSource source) {
+	private void tryTransferShard(ServerPlayer damagedPlayer, DamageSource source) {
 		if (this.isGameEnding()) return;
 
-		if (!(source.getAttacker() instanceof ServerPlayerEntity)) return;
-		ServerPlayerEntity attacker = (ServerPlayerEntity) source.getAttacker();
+		if (!(source.getEntity() instanceof ServerPlayer)) return;
+		ServerPlayer attacker = (ServerPlayer) source.getEntity();
 
 		if (this.shardHolder == null) return;
 
-		PlayerEntity shardPlayer = this.shardHolder.getPlayer();
+		Player shardPlayer = this.shardHolder.getPlayer();
 		if (!damagedPlayer.equals(shardPlayer)) return;
 		if (attacker.equals(shardPlayer)) return;
 
 		for (PlayerShardEntry entry : this.players) {
 			if (attacker.equals(entry.getPlayer())) {
-				if (source.isIn(DamageTypeTags.IS_PROJECTILE)) {
+				if (source.is(DamageTypeTags.IS_PROJECTILE)) {
 					this.dropShard();
-					if (source.getSource() instanceof ProjectileEntity) {
-						source.getSource().kill(this.world);
+					if (source.getDirectEntity() instanceof Projectile) {
+						source.getDirectEntity().kill(this.level);
 					}
  				} else if (this.shardHolder.canBeStolen()) {
 					this.setShardHolder(entry);
@@ -410,7 +440,7 @@ public class ShardThiefActivePhase {
 		}
 	}
 
-	private EventResult allowProjectileHit(Entity entity, PersistentProjectileEntity projectile) {
+	private EventResult allowProjectileHit(Entity entity, AbstractArrow projectile) {
 		if (this.shardHolder != null) {
 			if (entity == this.shardHolder.getPlayer()) {
 				return EventResult.ALLOW;
@@ -420,26 +450,26 @@ public class ShardThiefActivePhase {
 		return EventResult.DENY;
 	}
 
-	private EventResult onPlayerDamage(ServerPlayerEntity damagedPlayer, DamageSource source, float damage) {
+	private EventResult onPlayerDamage(ServerPlayer damagedPlayer, DamageSource source, float damage) {
 		this.tryTransferShard(damagedPlayer, source);
 		return EventResult.DENY;
 	}
 
-	private EventResult onPlayerDeath(ServerPlayerEntity player, DamageSource source) {
-		ShardThiefActivePhase.spawn(this.world, this.map, player, 0);
+	private EventResult onPlayerDeath(ServerPlayer player, DamageSource source) {
+		ShardThiefActivePhase.spawn(this.level, this.map, player, 0);
 		return EventResult.ALLOW;
 	}
 
-	public static void spawn(ServerWorld world, ShardThiefMap map, ServerPlayerEntity player, int index) {
-		Direction direction = Direction.fromHorizontalQuarterTurns(index);
+	public static void spawn(ServerLevel world, ShardThiefMap map, ServerPlayer player, int index) {
+		Direction direction = Direction.from2DDataValue(index);
 		int distance = (int) Math.min(index / 4f + 4, 8);
-		Vec3d pos = map.getCenterSpawnPos().offset(direction.getOpposite(), distance);
+		Vec3 pos = map.getCenterSpawnPos().relative(direction.getOpposite(), distance);
 
-		player.teleport(world, pos.getX(), pos.getY(), pos.getZ(), Set.of(), direction.getPositiveHorizontalDegrees(), 0, true);
+		player.teleportTo(world, pos.x(), pos.y(), pos.z(), Set.of(), direction.toYRot(), 0, true);
 	}
 
-	public static void respawnIfOutOfBounds(ServerPlayerEntity player, ShardThiefMap map, ServerWorld world) {
-		if (!map.getBox().contains(player.getBlockPos())) {
+	public static void respawnIfOutOfBounds(ServerPlayer player, ShardThiefMap map, ServerLevel world) {
+		if (!map.getBox().isInside(player.blockPosition())) {
 			ShardThiefActivePhase.spawn(world, map, player, 0);
 		}
 	}
