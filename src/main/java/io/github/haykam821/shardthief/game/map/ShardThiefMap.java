@@ -29,7 +29,7 @@ public final class ShardThiefMap {
 	}
 
 	public ShardThiefMap(ShardThiefMapConfig mapConfig, MinecraftServer server) {
-		this(mapConfig, server.getStructureManager().getOrCreate(mapConfig.getStructureId()));
+		this(mapConfig, server.getStructureTemplateManager().getOrCreate(mapConfig.getStructureId()));
 	}
 
 	public ShardThiefMapConfig getMapConfig() {
